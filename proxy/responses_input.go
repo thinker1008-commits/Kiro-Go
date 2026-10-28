@@ -229,6 +229,26 @@ func extractResponsesTools(raw json.RawMessage) []OpenAITool {
 	return tools
 }
 
+// decodeTopLevelResponsesTools re-reads the request's top-level "tools" array
+// so "namespace" wrappers there are flattened the same way as in
+// "additional_tools". Codex CLI 0.165+ sends its "collaboration" sub-agent
+// group (spawn_agent, wait_agent, ...) as a top-level namespace tool; the
+// plain OpenAITool decoding drops the nested list, so convertOpenAITools
+// would skip the whole group. Returns nil when there is no top-level array.
+func decodeTopLevelResponsesTools(body []byte) []OpenAITool {
+	var wrapper struct {
+		Tools []json.RawMessage `json:"tools"`
+	}
+	if err := json.Unmarshal(body, &wrapper); err != nil || len(wrapper.Tools) == 0 {
+		return nil
+	}
+	tools := make([]OpenAITool, 0, len(wrapper.Tools))
+	for _, t := range wrapper.Tools {
+		tools = append(tools, decodeResponsesTool(t)...)
+	}
+	return tools
+}
+
 // decodeResponsesTool decodes a single tool entry from an "additional_tools"
 // block. "namespace" entries (e.g. Codex's "collaboration" sub-agent group)
 // wrap a nested "tools" list instead of describing a callable tool

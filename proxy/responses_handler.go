@@ -31,6 +31,12 @@ func (h *Handler) handleOpenAIResponses(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Flatten top-level "namespace" tools (Codex 0.165+ sends its
+	// "collaboration" sub-agent group here rather than in additional_tools).
+	if flat := decodeTopLevelResponsesTools(body); flat != nil {
+		req.Tools = flat
+	}
+
 	// Newer Codex clients stop sending the top-level "tools" field and embed
 	// every tool declaration -- including Codex's own built-in "exec"
 	// custom tool that fronts shell/file/git access -- as an
